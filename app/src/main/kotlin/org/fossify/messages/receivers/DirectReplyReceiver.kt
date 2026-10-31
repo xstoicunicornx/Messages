@@ -55,7 +55,7 @@ class DirectReplyReceiver : BroadcastReceiver() {
 
                 val photoUri = SimpleContactsHelper(context).getPhotoUriFromPhoneNumber(address)
                 val bitmap = context.getNotificationBitmap(photoUri)
-                val fromSilencedSender = context.shouldSilenceSender(address)
+                val fromSilencedSender = context.shouldSilenceSender(address, threadId)
                 Handler(Looper.getMainLooper()).post {
                     context.notificationHelper.showMessageNotification(
                         messageId = messageId,

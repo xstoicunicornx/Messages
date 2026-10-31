@@ -1,6 +1,10 @@
 package org.fossify.messages.extensions
 
 import android.content.Context
+import android.net.Uri
+import android.provider.BaseColumns
+import android.provider.Telephony.Mms
+import android.provider.Telephony.Sms
 import android.util.LruCache
 import org.fossify.commons.extensions.getMyContactsCursor
 import org.fossify.commons.helpers.ContactLookupResult
@@ -12,6 +16,11 @@ import org.fossify.messages.models.Conversation
 // Only used for the conversation lists. Cleared whenever a list screen resumes, since contacts may have changed meanwhile.
 private val senderLookupCache = LruCache<String, ContactLookupResult>(512)
 
+private val SENT_SMS_TYPES = listOf(
+    Sms.MESSAGE_TYPE_SENT, Sms.MESSAGE_TYPE_OUTBOX, Sms.MESSAGE_TYPE_FAILED, Sms.MESSAGE_TYPE_QUEUED
+)
+private val SENT_MMS_BOXES = listOf(Mms.MESSAGE_BOX_SENT, Mms.MESSAGE_BOX_OUTBOX, Mms.MESSAGE_BOX_FAILED)
+
 fun clearSenderLookupCache() = senderLookupCache.evictAll()
 
 fun Context.getPrivateContacts(): ArrayList<SimpleContact> {
@@ -19,7 +28,7 @@ fun Context.getPrivateContacts(): ArrayList<SimpleContact> {
     return MyContactsContentProvider.getSimpleContacts(this, privateCursor)
 }
 
-// All of these query contacts, so call them off the main thread.
+// All of these query contacts or messages, so call them off the main thread.
 
 fun Context.lookupSender(address: String, privateContacts: List<SimpleContact>): ContactLookupResult {
     if (address.isBlank()) return ContactLookupResult.Undetermined
@@ -27,29 +36,71 @@ fun Context.lookupSender(address: String, privateContacts: List<SimpleContact>):
     return SimpleContactsHelper(this).existsSync(address)
 }
 
-// An undetermined lookup (e.g. no contacts permission) is never treated as unknown.
-fun Context.shouldSilenceSender(address: String): Boolean {
-    if (!config.silenceUnknownSenders) return false
-    return lookupSender(address, getPrivateContacts()) == ContactLookupResult.NotFound
+fun Context.getThreadNumbers(threadId: Long): List<String> {
+    return getThreadPhoneNumbers(getThreadRecipientIds(threadId)).filter { it.isNotBlank() }
 }
 
-// A group conversation is known if any participant is a contact.
-fun Context.isUnknownConversation(conversation: Conversation, privateContacts: List<SimpleContact>): Boolean {
-    val numbers = if (conversation.isGroupConversation) {
-        getThreadPhoneNumbers(getThreadRecipientIds(conversation.threadId))
+fun Context.getConversationNumbers(conversation: Conversation): List<String> {
+    return if (conversation.isGroupConversation) {
+        getThreadNumbers(conversation.threadId)
     } else {
-        listOf(conversation.phoneNumber)
-    }.filter { it.isNotBlank() }
+        listOf(conversation.phoneNumber).filter { it.isNotBlank() }
+    }
+}
 
+// Includes failed and queued messages: trying to text someone is enough to know them.
+fun Context.hasSentMessageInThread(threadId: Long): Boolean {
+    val threadArgs = arrayOf(threadId.toString())
+    return hasAnyRow(
+        uri = Sms.CONTENT_URI,
+        selection = "${Sms.THREAD_ID} = ? AND ${Sms.TYPE} IN (${SENT_SMS_TYPES.joinToString()})",
+        selectionArgs = threadArgs
+    ) || hasAnyRow(
+        uri = Mms.CONTENT_URI,
+        selection = "${Mms.THREAD_ID} = ? AND ${Mms.MESSAGE_BOX} IN (${SENT_MMS_BOXES.joinToString()})",
+        selectionArgs = threadArgs
+    )
+}
+
+private fun Context.hasAnyRow(uri: Uri, selection: String, selectionArgs: Array<String>): Boolean {
+    return try {
+        contentResolver.query(uri, arrayOf(BaseColumns._ID), selection, selectionArgs, null)
+            ?.use { it.moveToFirst() } ?: false
+    } catch (_: Exception) {
+        false
+    }
+}
+
+// A thread is unknown when no participant is a contact and we never sent a message in it, so a group conversation
+// is known if any participant is a contact. An undetermined lookup (e.g. no contacts permission) is never unknown.
+fun Context.isUnknownThread(
+    threadId: Long,
+    numbers: List<String>,
+    privateContacts: List<SimpleContact>,
+    useCache: Boolean = true,
+): Boolean {
     if (numbers.isEmpty()) return false
 
     val results = numbers.map { number ->
-        senderLookupCache.get(number) ?: lookupSender(number, privateContacts).also {
+        val cached = if (useCache) senderLookupCache.get(number) else null
+        cached ?: lookupSender(number, privateContacts).also {
             if (it != ContactLookupResult.Undetermined) senderLookupCache.put(number, it)
         }
     }
 
-    return results.all { it == ContactLookupResult.NotFound }
+    if (!results.all { it == ContactLookupResult.NotFound }) return false
+    return !hasSentMessageInThread(threadId)
+}
+
+// Always does a fresh lookup, since contacts may have changed since the lists were loaded.
+fun Context.shouldSilenceSender(address: String, threadId: Long): Boolean {
+    if (!config.silenceUnknownSenders) return false
+    val numbers = getThreadNumbers(threadId).ifEmpty { listOf(address) }
+    return isUnknownThread(threadId, numbers, getPrivateContacts(), useCache = false)
+}
+
+fun Context.isUnknownConversation(conversation: Conversation, privateContacts: List<SimpleContact>): Boolean {
+    return isUnknownThread(conversation.threadId, getConversationNumbers(conversation), privateContacts)
 }
 
 fun Context.filterUnknownConversations(

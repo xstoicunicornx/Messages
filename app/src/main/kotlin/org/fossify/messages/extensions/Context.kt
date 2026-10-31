@@ -1068,7 +1068,7 @@ fun Context.showReceivedMessageNotification(
     threadId: Long,
     bitmap: Bitmap?,
 ) {
-    val fromSilencedSender = shouldSilenceSender(address)
+    val fromSilencedSender = shouldSilenceSender(address, threadId)
     Handler(Looper.getMainLooper()).post {
         notificationHelper.showMessageNotification(
             messageId = messageId,
