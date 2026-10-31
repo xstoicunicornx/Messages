@@ -57,8 +57,10 @@ import org.fossify.messages.databinding.ActivityMainBinding
 import org.fossify.messages.extensions.checkAndDeleteOldRecycleBinMessages
 import org.fossify.messages.extensions.clearAllMessagesIfNeeded
 import org.fossify.messages.extensions.clearExpiredScheduledMessages
+import org.fossify.messages.extensions.clearSenderLookupCache
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
+import org.fossify.messages.extensions.filterUnknownConversations
 import org.fossify.messages.extensions.getConversations
 import org.fossify.messages.extensions.getMessages
 import org.fossify.messages.extensions.insertOrUpdateConversation
@@ -83,6 +85,7 @@ class MainActivity : SimpleActivity() {
     private var storedFontSize = 0
     private var lastSearchedText = ""
     private var bus: EventBus? = null
+    private var isFirstResume = true
 
     private val binding by viewBinding(ActivityMainBinding::inflate)
 
@@ -110,6 +113,13 @@ class MainActivity : SimpleActivity() {
         super.onResume()
         updateMenuColors()
         refreshMenuItems()
+
+        // contacts may have changed while we were away, e.g. a number was saved from the unknown senders screen
+        if (!isFirstResume) {
+            clearSenderLookupCache()
+            reloadVisibleConversations()
+        }
+        isFirstResume = false
 
         getOrCreateConversationsAdapter().apply {
             if (storedTextColor != getProperTextColor()) {
@@ -192,6 +202,25 @@ class MainActivity : SimpleActivity() {
             findItem(R.id.show_recycle_bin).isVisible = config.useRecycleBin
             findItem(R.id.show_archived).isVisible = config.isArchiveAvailable
         }
+    }
+
+    private fun reloadVisibleConversations() {
+        ensureBackgroundThread {
+            val conversations = try {
+                getVisibleConversations(conversationsDB.getNonArchived())
+            } catch (_: Exception) {
+                ArrayList()
+            }
+
+            runOnUiThread {
+                setupConversations(conversations)
+            }
+        }
+    }
+
+    // Unknown senders live on their own screen, like archived conversations. Queries contacts, so call it off the main thread.
+    private fun getVisibleConversations(conversations: List<Conversation>): ArrayList<Conversation> {
+        return filterUnknownConversations(conversations, unknown = false)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
@@ -300,8 +329,9 @@ class MainActivity : SimpleActivity() {
                 listOf()
             }
 
+            val visibleConversations = getVisibleConversations(conversations)
             runOnUiThread {
-                setupConversations(conversations, cached = true)
+                setupConversations(visibleConversations, cached = true)
                 getNewConversations(
                     (conversations + archived).toMutableList() as ArrayList<Conversation>
                 )
@@ -364,7 +394,7 @@ class MainActivity : SimpleActivity() {
                 }
             }
 
-            val allConversations = conversationsDB.getNonArchived() as ArrayList<Conversation>
+            val allConversations = getVisibleConversations(conversationsDB.getNonArchived())
             runOnUiThread {
                 setupConversations(allConversations)
             }
