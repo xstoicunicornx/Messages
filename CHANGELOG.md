@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added option to silence notifications from unknown senders
 
+### Changed
+- Moved conversations from unknown senders to a separate screen
+
 ## [1.10.2] - 2026-10-21
 ### Changed
 - Updated translations
