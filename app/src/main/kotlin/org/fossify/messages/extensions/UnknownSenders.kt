@@ -6,6 +6,7 @@ import android.provider.BaseColumns
 import android.provider.Telephony.Mms
 import android.provider.Telephony.Sms
 import android.telephony.PhoneNumberUtils
+import org.fossify.commons.extensions.baseConfig
 import org.fossify.commons.extensions.getMyContactsCursor
 import org.fossify.commons.helpers.ContactLookupResult
 import org.fossify.commons.helpers.MyContactsContentProvider
@@ -115,6 +116,8 @@ fun Context.isUnknownThread(
 // Always does a fresh lookup, since contacts may have changed since the lists were loaded.
 fun Context.shouldSilenceSender(address: String, threadId: Long): Boolean {
     if (!config.silenceUnknownSenders) return false
+    // blocking takes precedence: the receivers already dropped messages from numbers not in contacts, using contacts only
+    if (baseConfig.blockUnknownNumbers) return false
     val numbers = getThreadNumbers(threadId).ifEmpty { listOf(address) }
     return isUnknownThread(threadId, numbers, getPrivateContacts(), useCache = false)
 }
