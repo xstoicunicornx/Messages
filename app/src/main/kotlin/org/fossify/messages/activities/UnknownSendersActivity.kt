@@ -11,12 +11,14 @@ import org.fossify.commons.extensions.hideKeyboard
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.NavigationIcon
 import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.messages.R
 import org.fossify.messages.adapters.UnknownSendersAdapter
 import org.fossify.messages.databinding.ActivityUnknownSendersBinding
 import org.fossify.messages.extensions.clearSenderLookupCache
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.filterUnknownConversations
+import org.fossify.messages.extensions.recheckSenders
 import org.fossify.messages.helpers.THREAD_ID
 import org.fossify.messages.helpers.THREAD_TITLE
 import org.fossify.messages.models.Conversation
@@ -32,6 +34,7 @@ class UnknownSendersActivity : SimpleActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
+        setupOptionsMenu()
 
         setupEdgeToEdge(padBottomImeAndSystem = listOf(binding.conversationsList))
         setupMaterialScrollListener(
@@ -49,14 +52,30 @@ class UnknownSendersActivity : SimpleActivity() {
     override fun onResume() {
         super.onResume()
         setupTopAppBar(binding.unknownSendersAppbar, NavigationIcon.Arrow)
-        // contacts may have changed while we were away, e.g. a number was saved from this screen
-        clearSenderLookupCache()
+        recheckSenders()
         loadUnknownSenderConversations()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         bus?.unregister(this)
+    }
+
+    private fun setupOptionsMenu() {
+        binding.unknownSendersToolbar.inflateMenu(R.menu.unknown_senders_menu)
+        binding.unknownSendersToolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.refresh_known_senders -> refreshKnownSenders()
+                else -> return@setOnMenuItemClickListener false
+            }
+            return@setOnMenuItemClickListener true
+        }
+    }
+
+    // The main list picks up the changes when it resumes
+    private fun refreshKnownSenders() {
+        clearSenderLookupCache()
+        loadUnknownSenderConversations()
     }
 
     private fun loadUnknownSenderConversations() {

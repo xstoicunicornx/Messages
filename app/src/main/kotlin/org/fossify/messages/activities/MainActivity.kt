@@ -57,7 +57,6 @@ import org.fossify.messages.databinding.ActivityMainBinding
 import org.fossify.messages.extensions.checkAndDeleteOldRecycleBinMessages
 import org.fossify.messages.extensions.clearAllMessagesIfNeeded
 import org.fossify.messages.extensions.clearExpiredScheduledMessages
-import org.fossify.messages.extensions.clearSenderLookupCache
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.filterUnknownConversations
@@ -114,9 +113,8 @@ class MainActivity : SimpleActivity() {
         updateMenuColors()
         refreshMenuItems()
 
-        // contacts may have changed while we were away, e.g. a number was saved from the unknown senders screen
+        // known senders may have changed on the unknown senders screen
         if (!isFirstResume) {
-            clearSenderLookupCache()
             reloadVisibleConversations()
         }
         isFirstResume = false

@@ -7,6 +7,7 @@ import org.fossify.messages.R
 import org.fossify.messages.activities.SimpleActivity
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.getConversationNumbers
+import org.fossify.messages.extensions.markSenderForRecheck
 import org.fossify.messages.helpers.refreshConversations
 
 class UnknownSendersAdapter(
@@ -27,6 +28,12 @@ class UnknownSendersAdapter(
     override fun actionItemPressed(id: Int) {
         when (id) {
             R.id.cab_move_to_known_senders -> moveToKnownSenders()
+            R.id.cab_add_number_to_contact -> {
+                // the contacts app may save it, so look it up again when we're back
+                getSelectedItems().firstOrNull()?.let { markSenderForRecheck(it.phoneNumber) }
+                super.actionItemPressed(id)
+            }
+
             else -> super.actionItemPressed(id)
         }
     }

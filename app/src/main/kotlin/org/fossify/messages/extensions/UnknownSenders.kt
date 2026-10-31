@@ -6,23 +6,37 @@ import android.provider.BaseColumns
 import android.provider.Telephony.Mms
 import android.provider.Telephony.Sms
 import android.telephony.PhoneNumberUtils
-import android.util.LruCache
 import org.fossify.commons.extensions.getMyContactsCursor
 import org.fossify.commons.helpers.ContactLookupResult
 import org.fossify.commons.helpers.MyContactsContentProvider
 import org.fossify.commons.helpers.SimpleContactsHelper
 import org.fossify.commons.models.SimpleContact
 import org.fossify.messages.models.Conversation
+import java.util.concurrent.ConcurrentHashMap
 
-// Only used for the conversation lists. Cleared whenever a list screen resumes, since contacts may have changed meanwhile.
-private val senderLookupCache = LruCache<String, ContactLookupResult>(512)
+// Kept for as long as the app process runs. Refreshed from the unknown senders screen menu, and per number by
+// notifications and by saving a number to contacts from the unknown senders screen.
+private val senderLookupCache = ConcurrentHashMap<String, ContactLookupResult>()
+private val sendersToRecheck = ConcurrentHashMap.newKeySet<String>()
 
 private val SENT_SMS_TYPES = listOf(
     Sms.MESSAGE_TYPE_SENT, Sms.MESSAGE_TYPE_OUTBOX, Sms.MESSAGE_TYPE_FAILED, Sms.MESSAGE_TYPE_QUEUED
 )
 private val SENT_MMS_BOXES = listOf(Mms.MESSAGE_BOX_SENT, Mms.MESSAGE_BOX_OUTBOX, Mms.MESSAGE_BOX_FAILED)
 
-fun clearSenderLookupCache() = senderLookupCache.evictAll()
+fun clearSenderLookupCache() = senderLookupCache.clear()
+
+// For numbers that may be saved to contacts outside the app; call recheckSenders() once back.
+fun markSenderForRecheck(number: String) {
+    sendersToRecheck.add(number)
+}
+
+fun recheckSenders() {
+    sendersToRecheck.toList().forEach {
+        senderLookupCache.remove(it)
+        sendersToRecheck.remove(it)
+    }
+}
 
 fun Context.getPrivateContacts(): ArrayList<SimpleContact> {
     val privateCursor = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true)
@@ -88,9 +102,9 @@ fun Context.isUnknownThread(
     if (numbers.any { isKnownSender(it) }) return false
 
     val results = numbers.map { number ->
-        val cached = if (useCache) senderLookupCache.get(number) else null
+        val cached = if (useCache) senderLookupCache[number] else null
         cached ?: lookupSender(number, privateContacts).also {
-            if (it != ContactLookupResult.Undetermined) senderLookupCache.put(number, it)
+            if (it != ContactLookupResult.Undetermined) senderLookupCache[number] = it
         }
     }
 
