@@ -9,7 +9,10 @@ import android.graphics.drawable.Icon
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.provider.Telephony
+import android.text.SpannableString
+import android.text.Spanned
 import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
 import androidx.appcompat.content.res.AppCompatResources
 import org.fossify.commons.dialogs.PermissionRequiredDialog
 import org.fossify.commons.extensions.adjustAlpha
@@ -59,7 +62,7 @@ import org.fossify.messages.extensions.clearAllMessagesIfNeeded
 import org.fossify.messages.extensions.clearExpiredScheduledMessages
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
-import org.fossify.messages.extensions.filterUnknownConversations
+import org.fossify.messages.extensions.partitionUnknownConversations
 import org.fossify.messages.extensions.getConversations
 import org.fossify.messages.extensions.getMessages
 import org.fossify.messages.extensions.insertOrUpdateConversation
@@ -205,21 +208,39 @@ class MainActivity : SimpleActivity() {
 
     private fun reloadVisibleConversations() {
         ensureBackgroundThread {
-            val conversations = try {
+            val (conversations, hasUnreadUnknown) = try {
                 getVisibleConversations(conversationsDB.getNonArchived())
             } catch (_: Exception) {
-                ArrayList()
+                Pair(ArrayList(), false)
             }
 
             runOnUiThread {
                 setupConversations(conversations)
+                updateUnknownSendersMenuItem(hasUnreadUnknown)
             }
         }
     }
 
-    // Unknown senders live on their own screen, like archived conversations. Queries contacts, so call it off the main thread.
-    private fun getVisibleConversations(conversations: List<Conversation>): ArrayList<Conversation> {
-        return filterUnknownConversations(conversations, unknown = false)
+    // Unknown senders live on their own screen, like archived conversations. Returns the conversations to show and
+    // whether any unknown ones are unread. Queries contacts, so call it off the main thread.
+    private fun getVisibleConversations(conversations: List<Conversation>): Pair<ArrayList<Conversation>, Boolean> {
+        val (known, unknown) = partitionUnknownConversations(conversations)
+        return Pair(known, unknown.any { !it.read })
+    }
+
+    private fun updateUnknownSendersMenuItem(hasUnread: Boolean) {
+        val menuItem = binding.mainMenu.requireToolbar().menu.findItem(R.id.show_unknown_senders) ?: return
+        val title = getString(R.string.show_unknown_senders)
+        if (hasUnread) {
+            val dotStart = title.length + 2
+            menuItem.title = SpannableString("$title  \u25CF").apply {
+                setSpan(ForegroundColorSpan(getProperPrimaryColor()), dotStart, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            menuItem.contentDescription = getString(R.string.show_unknown_senders_unread)
+        } else {
+            menuItem.title = title
+            menuItem.contentDescription = null
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
@@ -328,9 +349,10 @@ class MainActivity : SimpleActivity() {
                 listOf()
             }
 
-            val visibleConversations = getVisibleConversations(conversations)
+            val (visibleConversations, hasUnreadUnknown) = getVisibleConversations(conversations)
             runOnUiThread {
                 setupConversations(visibleConversations, cached = true)
+                updateUnknownSendersMenuItem(hasUnreadUnknown)
                 getNewConversations(
                     (conversations + archived).toMutableList() as ArrayList<Conversation>
                 )
@@ -393,9 +415,10 @@ class MainActivity : SimpleActivity() {
                 }
             }
 
-            val allConversations = getVisibleConversations(conversationsDB.getNonArchived())
+            val (allConversations, hasUnreadUnknown) = getVisibleConversations(conversationsDB.getNonArchived())
             runOnUiThread {
                 setupConversations(allConversations)
+                updateUnknownSendersMenuItem(hasUnreadUnknown)
             }
 
             if (config.appRunCount == 1) {

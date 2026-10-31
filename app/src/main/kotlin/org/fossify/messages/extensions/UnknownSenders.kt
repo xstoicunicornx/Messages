@@ -123,10 +123,23 @@ fun Context.isUnknownConversation(conversation: Conversation, privateContacts: L
     return isUnknownThread(conversation.threadId, getConversationNumbers(conversation), privateContacts)
 }
 
+// Returns the known conversations first and the unknown ones second
+fun Context.partitionUnknownConversations(
+    conversations: List<Conversation>,
+): Pair<ArrayList<Conversation>, ArrayList<Conversation>> {
+    val privateContacts = getPrivateContacts()
+    val known = ArrayList<Conversation>()
+    val unknown = ArrayList<Conversation>()
+    conversations.forEach {
+        if (isUnknownConversation(it, privateContacts)) unknown.add(it) else known.add(it)
+    }
+    return Pair(known, unknown)
+}
+
 fun Context.filterUnknownConversations(
     conversations: List<Conversation>,
     unknown: Boolean,
 ): ArrayList<Conversation> {
-    val privateContacts = getPrivateContacts()
-    return conversations.filterTo(ArrayList()) { isUnknownConversation(it, privateContacts) == unknown }
+    val (knownConversations, unknownConversations) = partitionUnknownConversations(conversations)
+    return if (unknown) unknownConversations else knownConversations
 }

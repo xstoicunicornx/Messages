@@ -69,6 +69,7 @@
     <string name="show_archived_conversations">Show archived conversations</string>
     <string name="unknown_senders">Unknown senders</string>
     <string name="show_unknown_senders">Show unknown senders</string>
+    <string name="show_unknown_senders_unread">Show unknown senders, unread messages</string>
     <string name="move_to_known_senders">Move to known senders</string>
     <string name="refresh_known_senders">Refresh known senders</string>
     <string name="no_unknown_sender_conversations">No conversations from unknown senders have been found</string>
