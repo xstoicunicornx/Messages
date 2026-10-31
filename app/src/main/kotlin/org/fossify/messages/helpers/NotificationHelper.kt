@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager.IMPORTANCE_HIGH
+import android.app.NotificationManager.IMPORTANCE_LOW
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -44,14 +45,20 @@ class NotificationHelper(private val context: Context) {
         threadId: Long,
         bitmap: Bitmap?,
         sender: String?,
-        alertOnlyOnce: Boolean = false
+        alertOnlyOnce: Boolean = false,
+        fromSilencedSender: Boolean = false
     ) {
         val hasCustomNotifications =
             context.config.customNotifications.contains(threadId.toString())
-        val notificationChannelId =
-            if (hasCustomNotifications) threadId.toString() else NOTIFICATION_CHANNEL_ID
-        if (!hasCustomNotifications) {
-            createChannel(notificationChannelId, context.getString(R.string.channel_received_sms))
+        val notificationChannelId = when {
+            hasCustomNotifications -> threadId.toString()
+            fromSilencedSender -> UNKNOWN_SENDERS_NOTIFICATION_CHANNEL_ID
+            else -> NOTIFICATION_CHANNEL_ID
+        }
+        when {
+            hasCustomNotifications -> {}
+            fromSilencedSender -> createUnknownSendersChannel()
+            else -> createChannel(notificationChannelId, context.getString(R.string.channel_received_sms))
         }
 
         val notificationId = threadId.hashCode()
@@ -242,6 +249,21 @@ class NotificationHelper(private val context: Context) {
             enableLights(true)
             setSound(soundUri, audioAttributes)
             enableVibration(true)
+            notificationManager.createNotificationChannel(this)
+        }
+    }
+
+    // Starts silent. Once created, the user controls sound, vibration and importance from system settings.
+    fun createUnknownSendersChannel() {
+        NotificationChannel(
+            UNKNOWN_SENDERS_NOTIFICATION_CHANNEL_ID,
+            context.getString(R.string.channel_unknown_senders),
+            IMPORTANCE_LOW
+        ).apply {
+            description = context.getString(R.string.channel_unknown_senders_description)
+            setBypassDnd(false)
+            setSound(null, null)
+            enableVibration(false)
             notificationManager.createNotificationChannel(this)
         }
     }

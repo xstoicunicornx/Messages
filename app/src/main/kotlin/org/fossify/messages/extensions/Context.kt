@@ -40,6 +40,7 @@ import org.fossify.commons.extensions.queryCursor
 import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.trimToComparableNumber
+import org.fossify.commons.helpers.ContactLookupResult
 import org.fossify.commons.helpers.DAY_SECONDS
 import org.fossify.commons.helpers.MONTH_SECONDS
 import org.fossify.commons.helpers.MyContactsContentProvider
@@ -1068,6 +1069,7 @@ fun Context.showReceivedMessageNotification(
     threadId: Long,
     bitmap: Bitmap?,
 ) {
+    val fromSilencedSender = shouldSilenceSender(address)
     Handler(Looper.getMainLooper()).post {
         notificationHelper.showMessageNotification(
             messageId = messageId,
@@ -1076,9 +1078,19 @@ fun Context.showReceivedMessageNotification(
             body = body,
             threadId = threadId,
             bitmap = bitmap,
-            sender = senderName
+            sender = senderName,
+            fromSilencedSender = fromSilencedSender
         )
     }
+}
+
+// Queries contacts, so call it off the main thread. An undetermined lookup (e.g. no contacts permission) is not silenced.
+fun Context.shouldSilenceSender(address: String): Boolean {
+    if (!config.silenceUnknownSenders) return false
+    val result = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true).use {
+        SimpleContactsHelper(this).existsSync(address, it)
+    }
+    return result == ContactLookupResult.NotFound
 }
 
 fun Context.getNameFromAddress(address: String, privateCursor: Cursor?): String {

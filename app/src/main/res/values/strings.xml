@@ -53,6 +53,10 @@
     <string name="message_details_received_at">Received at</string>
     <!-- Notifications -->
     <string name="channel_received_sms">Received SMS</string>
+    <string name="channel_unknown_senders">Unknown senders</string>
+    <string name="channel_unknown_senders_description">Messages from numbers not in your contacts</string>
+    <string name="silence_unknown_senders">Silence unknown senders</string>
+    <string name="customize_unknown_senders_notifications">Customize unknown sender notifications</string>
     <string name="new_message">New message</string>
     <string name="mark_as_read">Mark as Read</string>
     <string name="mark_as_unread">Mark as Unread</string>
