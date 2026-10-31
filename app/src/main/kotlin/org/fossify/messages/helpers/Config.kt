@@ -156,4 +156,13 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(SILENCE_UNKNOWN_SENDERS, false)
         set(silenceUnknownSenders) = prefs.edit()
             .putBoolean(SILENCE_UNKNOWN_SENDERS, silenceUnknownSenders).apply()
+
+    // Numbers the user moved out of unknown senders without saving them as contacts
+    var knownSenders: Set<String>
+        get() = prefs.getStringSet(KNOWN_SENDERS, HashSet<String>())!!
+        set(knownSenders) = prefs.edit().putStringSet(KNOWN_SENDERS, knownSenders).apply()
+
+    fun addKnownSenders(numbers: List<String>) {
+        knownSenders = knownSenders.plus(numbers)
+    }
 }

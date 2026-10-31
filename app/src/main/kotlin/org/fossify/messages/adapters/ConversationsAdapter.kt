@@ -26,7 +26,7 @@ import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.messaging.isShortCodeWithLetters
 import org.fossify.messages.models.Conversation
 
-class ConversationsAdapter(
+open class ConversationsAdapter(
     activity: SimpleActivity,
     recyclerView: MyRecyclerView,
     onRefresh: () -> Unit,

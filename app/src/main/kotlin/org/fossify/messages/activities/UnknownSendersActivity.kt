@@ -11,7 +11,7 @@ import org.fossify.commons.extensions.hideKeyboard
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.NavigationIcon
 import org.fossify.commons.helpers.ensureBackgroundThread
-import org.fossify.messages.adapters.ConversationsAdapter
+import org.fossify.messages.adapters.UnknownSendersAdapter
 import org.fossify.messages.databinding.ActivityUnknownSendersBinding
 import org.fossify.messages.extensions.clearSenderLookupCache
 import org.fossify.messages.extensions.config
@@ -75,11 +75,11 @@ class UnknownSendersActivity : SimpleActivity() {
         }
     }
 
-    private fun getOrCreateConversationsAdapter(): ConversationsAdapter {
+    private fun getOrCreateConversationsAdapter(): UnknownSendersAdapter {
         var currAdapter = binding.conversationsList.adapter
         if (currAdapter == null) {
             hideKeyboard()
-            currAdapter = ConversationsAdapter(
+            currAdapter = UnknownSendersAdapter(
                 activity = this,
                 recyclerView = binding.conversationsList,
                 onRefresh = { notifyDatasetChanged() },
@@ -91,7 +91,7 @@ class UnknownSendersActivity : SimpleActivity() {
                 binding.conversationsList.scheduleLayoutAnimation()
             }
         }
-        return currAdapter as ConversationsAdapter
+        return currAdapter as UnknownSendersAdapter
     }
 
     private fun setupConversations(conversations: ArrayList<Conversation>) {

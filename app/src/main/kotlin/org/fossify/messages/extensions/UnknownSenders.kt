@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.BaseColumns
 import android.provider.Telephony.Mms
 import android.provider.Telephony.Sms
+import android.telephony.PhoneNumberUtils
 import android.util.LruCache
 import org.fossify.commons.extensions.getMyContactsCursor
 import org.fossify.commons.helpers.ContactLookupResult
@@ -34,6 +35,10 @@ fun Context.lookupSender(address: String, privateContacts: List<SimpleContact>):
     if (address.isBlank()) return ContactLookupResult.Undetermined
     if (privateContacts.any { it.doesHavePhoneNumber(address) }) return ContactLookupResult.Found
     return SimpleContactsHelper(this).existsSync(address)
+}
+
+fun Context.isKnownSender(address: String): Boolean {
+    return config.knownSenders.any { it == address || PhoneNumberUtils.compare(it, address) }
 }
 
 fun Context.getThreadNumbers(threadId: Long): List<String> {
@@ -71,8 +76,8 @@ private fun Context.hasAnyRow(uri: Uri, selection: String, selectionArgs: Array<
     }
 }
 
-// A thread is unknown when no participant is a contact and we never sent a message in it, so a group conversation
-// is known if any participant is a contact. An undetermined lookup (e.g. no contacts permission) is never unknown.
+// A thread is unknown when no participant is a contact or a known sender and we never sent a message in it, so a group
+// conversation is known if any participant is. An undetermined lookup (e.g. no contacts permission) is never unknown.
 fun Context.isUnknownThread(
     threadId: Long,
     numbers: List<String>,
@@ -80,6 +85,7 @@ fun Context.isUnknownThread(
     useCache: Boolean = true,
 ): Boolean {
     if (numbers.isEmpty()) return false
+    if (numbers.any { isKnownSender(it) }) return false
 
     val results = numbers.map { number ->
         val cached = if (useCache) senderLookupCache.get(number) else null
