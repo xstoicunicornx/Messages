@@ -665,7 +665,7 @@ fun Context.getThreadParticipants(
     return participants
 }
 
-private fun Context.getThreadRecipientIds(threadId: Long): List<Int> {
+fun Context.getThreadRecipientIds(threadId: Long): List<Int> {
     val recipientIds = ArrayList<Int>()
     queryCursor(
         uri = "${MmsSms.CONTENT_CONVERSATIONS_URI}?simple=true".toUri(),
@@ -1068,6 +1068,7 @@ fun Context.showReceivedMessageNotification(
     threadId: Long,
     bitmap: Bitmap?,
 ) {
+    val fromSilencedSender = shouldSilenceSender(address, threadId)
     Handler(Looper.getMainLooper()).post {
         notificationHelper.showMessageNotification(
             messageId = messageId,
@@ -1076,7 +1077,8 @@ fun Context.showReceivedMessageNotification(
             body = body,
             threadId = threadId,
             bitmap = bitmap,
-            sender = senderName
+            sender = senderName,
+            fromSilencedSender = fromSilencedSender
         )
     }
 }

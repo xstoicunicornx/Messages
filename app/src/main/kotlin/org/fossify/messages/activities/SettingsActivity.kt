@@ -2,6 +2,7 @@ package org.fossify.messages.activities
 
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
 import org.fossify.commons.activities.ManageBlockedNumbersActivity
 import org.fossify.commons.dialogs.ChangeDateTimeFormatDialog
@@ -35,9 +36,11 @@ import org.fossify.messages.dialogs.ExportMessagesDialog
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.emptyMessagesRecycleBin
 import org.fossify.messages.extensions.messagesDB
+import org.fossify.messages.extensions.notificationHelper
 import org.fossify.messages.helpers.FILE_SIZE_100_KB
 import org.fossify.messages.helpers.FILE_SIZE_1_MB
 import org.fossify.messages.helpers.FILE_SIZE_200_KB
+import org.fossify.messages.helpers.UNKNOWN_SENDERS_NOTIFICATION_CHANNEL_ID
 import org.fossify.messages.helpers.FILE_SIZE_2_MB
 import org.fossify.messages.helpers.FILE_SIZE_300_KB
 import org.fossify.messages.helpers.FILE_SIZE_600_KB
@@ -113,6 +116,7 @@ class SettingsActivity : SimpleActivity() {
         setupGroupMessageAsMMS()
         setupKeepConversationsArchived()
         setupLockScreenVisibility()
+        setupSilenceUnknownSenders()
         setupMMSFileSizeLimit()
         setupUseRecycleBin()
         setupEmptyRecycleBin()
@@ -315,6 +319,25 @@ class SettingsActivity : SimpleActivity() {
             RadioGroupDialog(this@SettingsActivity, items, config.lockScreenVisibilitySetting) {
                 config.lockScreenVisibilitySetting = it as Int
                 settingsLockScreenVisibility.text = getLockScreenVisibilityText()
+            }
+        }
+    }
+
+    private fun setupSilenceUnknownSenders() = binding.apply {
+        settingsSilenceUnknownSenders.isChecked = config.silenceUnknownSenders
+        settingsCustomizeUnknownSendersNotificationsHolder.beVisibleIf(config.silenceUnknownSenders)
+        settingsSilenceUnknownSendersHolder.setOnClickListener {
+            settingsSilenceUnknownSenders.toggle()
+            config.silenceUnknownSenders = settingsSilenceUnknownSenders.isChecked
+            settingsCustomizeUnknownSendersNotificationsHolder.beVisibleIf(config.silenceUnknownSenders)
+        }
+
+        settingsCustomizeUnknownSendersNotificationsHolder.setOnClickListener {
+            notificationHelper.createUnknownSendersChannel()
+            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                putExtra(Settings.EXTRA_CHANNEL_ID, UNKNOWN_SENDERS_NOTIFICATION_CHANNEL_ID)
+                startActivity(this)
             }
         }
     }
